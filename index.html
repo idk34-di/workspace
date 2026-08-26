@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VERSION 1.4</title>
+<title>VERSION 5.0</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600&display=swap');
 :root{
@@ -141,6 +141,11 @@ input[type=range].szr{width:65px;accent-color:var(--accent);}
     <div id="theme-dots" style="display:flex;gap:6px"></div>
   </div>
   <span class="app-title">WORKSPACE</span>
+  <div style="display:flex;align-items:center;gap:10px;font-family:var(--font-mono);font-size:11px;">
+    <span id="contatore" style="color:var(--text2);">👁 …</span>
+    <button id="login-btn" class="btn" onclick="accedi()">ACCEDI</button>
+    <span id="user-info" style="display:none;color:var(--accent2);cursor:pointer;" onclick="esci()"></span>
+  </div>
 </header>
 
 <div class="tabs">
@@ -555,7 +560,7 @@ function saveNote(){
   n.body=document.getElementById('noteBodyIn').value; n.upd=Date.now();
   notes.sort((a,b)=>b.upd-a.upd); svN(); rnotes();
 }
-function svN(){ localStorage.setItem('app_notes',JSON.stringify(notes)); }
+function svN(){ localStorage.setItem('app_notes',JSON.stringify(notes)); salvaDatiUtente(); }
 rnotes();
 
 /* MIND MAP */
@@ -567,6 +572,7 @@ let mmSelected=null, mmLinkArmed=null;
 function saveMindmap(){
   localStorage.setItem('app_mindmap',JSON.stringify(mindmapNodes));
   localStorage.setItem('app_mindmap_links',JSON.stringify(mindmapLinks));
+  salvaDatiUtente();
 }
 function findNode(id){ return mindmapNodes.find(n=>n.id===id); }
 
@@ -713,6 +719,111 @@ function showToast(msg,err=false){
   toastT=setTimeout(()=>el.className='toast',2800);
 }
 </script>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+
+<script>
+'use strict';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA0-O7pTF_M_DmJ2mkvlGqkJuoD5Lc_WjE",
+  authDomain: "workspace-5e87a.firebaseapp.com",
+  projectId: "workspace-5e87a"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+/* CONTATORE VISITE */
+async function incrementaContatore() {
+  try {
+    const ref = db.collection("stats").doc("visite");
+    await db.runTransaction(async (t) => {
+      const doc = await t.get(ref);
+      const attuale = doc.exists ? doc.data().count : 0;
+      t.set(ref, { count: attuale + 1 });
+    });
+    const doc = await ref.get();
+    document.getElementById("contatore").textContent = "👁 " + doc.data().count;
+  } catch (e) {
+    console.error("Errore contatore:", e);
+  }
+}
+incrementaContatore();
+
+/* LOGIN GOOGLE */
+function accedi() {
+  auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e => {
+    console.error("Errore login:", e);
+    showToast('LOGIN FAILED', true);
+  });
+}
+function esci() {
+  auth.signOut();
+}
+
+let datiRemotiCaricati = false;
+
+auth.onAuthStateChanged(async (user) => {
+  document.getElementById("login-btn").style.display = user ? "none" : "";
+  document.getElementById("user-info").style.display = user ? "" : "none";
+  if (user) {
+    document.getElementById("user-info").textContent = user.displayName || user.email;
+    await caricaDatiUtente(user.uid);
+  } else {
+    datiRemotiCaricati = false;
+  }
+});
+
+/* CARICAMENTO NOTE/MAPPA DA FIRESTORE */
+async function caricaDatiUtente(uid) {
+  try {
+    const doc = await db.collection("utenti").doc(uid).get();
+    if (doc.exists) {
+      const dati = doc.data();
+      notes = dati.notes || [];
+      mindmapNodes = dati.mindmapNodes || [];
+      mindmapLinks = dati.mindmapLinks || [];
+      localStorage.setItem('app_notes', JSON.stringify(notes));
+      localStorage.setItem('app_mindmap', JSON.stringify(mindmapNodes));
+      localStorage.setItem('app_mindmap_links', JSON.stringify(mindmapLinks));
+    } else {
+      datiRemotiCaricati = true;
+      await salvaDatiUtente(true);
+    }
+    datiRemotiCaricati = true;
+    curNid = null;
+    document.getElementById('noteEmpty').style.display = '';
+    document.getElementById('noteTitleIn').style.display = 'none';
+    document.getElementById('noteBodyIn').style.display = 'none';
+    rnotes();
+    updateMindmapScreen();
+    showToast('DATI SINCRONIZZATI');
+  } catch (e) {
+    console.error("Errore caricamento dati:", e);
+    showToast('SYNC FAILED', true);
+  }
+}
+
+/* SALVATAGGIO SU FIRESTORE (con debounce) */
+let salvataggioTimer = null;
+function salvaDatiUtente(immediato) {
+  const user = auth.currentUser;
+  if (!user || !datiRemotiCaricati) return;
+  const esegui = () => {
+    db.collection("utenti").doc(user.uid).set({
+      notes: notes,
+      mindmapNodes: mindmapNodes,
+      mindmapLinks: mindmapLinks
+    }, { merge: true }).catch(e => console.error("Errore salvataggio:", e));
+  };
+  if (immediato) { esegui(); return; }
+  clearTimeout(salvataggioTimer);
+  salvataggioTimer = setTimeout(esegui, 800);
+}
+</script>
 </body>
 </html>
-© 2026 Ismaele. All rights reserved. Created: 23-07-2026 | Last Update: 07-08-2026
+© 2026 Ismaele. All rights reserved. Created: 23-07-2026 | Last Update: 26-08-2026
