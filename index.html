@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VERSION 5.0</title>
+<title>VERSION 5.1</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600&display=swap');
 :root{
@@ -17,13 +17,14 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:var(--font-ui);height:100dvh;display:flex;flex-direction:column;overflow:hidden;transition:background .4s,color .4s;}
 
-header{display:flex;align-items:center;justify-content:space-between;padding:.6rem 1.2rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;}
+header{display:flex;align-items:center;justify-content:space-between;padding:.6rem 1.2rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;position:relative;}
 .theme-picker{display:flex;align-items:center;gap:6px;}
 .theme-label{font-family:var(--font-mono);font-size:9px;color:var(--text2);letter-spacing:1px;margin-right:4px;}
 .theme-dot{width:18px;height:18px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .15s,border-color .15s;flex-shrink:0;}
 .theme-dot:hover{transform:scale(1.25);}
 .theme-dot.active{border-color:var(--text);transform:scale(1.2);}
-.app-title{font-family:var(--font-mono);font-size:11px;color:var(--accent);letter-spacing:2px;}
+.app-title{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:var(--font-mono);font-size:11px;color:var(--accent);letter-spacing:2px;text-decoration:none;cursor:pointer;transition:color .15s;white-space:nowrap;}
+.app-title:hover{color:var(--accent2);}
 
 .tabs{display:flex;gap:6px;flex-wrap:wrap;padding:.6rem 1.2rem .35rem;flex-shrink:0;}
 .tab{padding:5px 14px;border-radius:2px;border:1px solid var(--border);font-family:var(--font-mono);font-size:11px;letter-spacing:2px;cursor:pointer;background:transparent;color:var(--text2);transition:all .15s;}
@@ -127,6 +128,7 @@ input[type=range].szr{width:65px;accent-color:var(--accent);}
 
 @media(max-width:560px){
   .notes-sidebar{width:125px;}
+  .app-title{font-size:9px;letter-spacing:1px;}
 }
 @media(max-width:400px){.notes-sidebar{display:none;}}
 </style>
@@ -140,7 +142,7 @@ input[type=range].szr{width:65px;accent-color:var(--accent);}
     <span class="theme-label">THEME</span>
     <div id="theme-dots" style="display:flex;gap:6px"></div>
   </div>
-  <span class="app-title">WORKSPACE</span>
+  <a class="app-title" href="https://idk34-di.github.io/" target="_blank" rel="noopener">WORKSPACE</a>
   <div style="display:flex;align-items:center;gap:10px;font-family:var(--font-mono);font-size:11px;">
     <span id="contatore" style="color:var(--text2);">👁 …</span>
     <button id="login-btn" class="btn" onclick="accedi()">ACCEDI</button>
@@ -275,7 +277,7 @@ input[type=range].szr{width:65px;accent-color:var(--accent);}
   <div style="padding:6px 10px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;">
     <div class="screen" style="margin-bottom:0;">
       <div class="screen-top"><span class="screen-label">MUSIC</span><span class="screen-right">SYNTH</span></div>
-      <div class="screen-row"><span class="screen-info">VERSION 3.0</span><span class="screen-info">&copy; 2026 ISMAELE</span></div>
+      <div class="screen-row"><span class="screen-info">VERSION 3.0</span></div>
     </div>
   </div>
   <div class="music-empty">
@@ -736,10 +738,14 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-/* CONTATORE VISITE */
+/* CONTATORE VISITE MENSILE (documento "visite_workspace_YYYY-MM": cambia ogni mese, quindi riparte da 0 da solo) */
+function monthKey(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
 async function incrementaContatore() {
   try {
-    const ref = db.collection("stats").doc("visite");
+    const ref = db.collection("stats").doc("visite_workspace_" + monthKey());
     await db.runTransaction(async (t) => {
       const doc = await t.get(ref);
       const attuale = doc.exists ? doc.data().count : 0;
